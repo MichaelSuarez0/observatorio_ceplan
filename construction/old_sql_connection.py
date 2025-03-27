@@ -23,14 +23,14 @@ for details in dict_db:
 
 cursor.execute(VistasQueries().create_table)
 
-for details in dict_db:
-    cursor.execute(insert_query, (
-        details["author"], 
-        details["new_name"], 
-        details["original_name"], 
-        details["path"], 
-        details["sharepoint_uploaded"]
-    ))
+# for details in dict_db:
+#     cursor.execute(insert_query, (
+#         details["author"], 
+#         details["new_name"], 
+#         details["original_name"], 
+#         details["path"], 
+#         details["sharepoint_uploaded"]
+#     ))
 
-conn.commit()
-conn.close()
+# conn.commit()
+# conn.close()

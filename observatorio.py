@@ -31,61 +31,69 @@ def regexp(pattern, item):
     return re.search(pattern, item) is not None
 
 
-def connect(db_name: str = "observatorio"):
+def connect(db_name: str = "observatorio", register_regex: bool = False):
     database = os.path.join(databases, f"{db_name}.db")
     conn = sqlite3.connect(database)
     cursor = conn.cursor()
-    conn.create_function("REGEXP", 2, regexp)  # Registrar la función
+    if register_regex:
+        conn.create_function("REGEXP", 2, regexp)  # Registrar la función
     return cursor, conn
 
 
 # ============================================================
 #  2. Definir funciones principales
 # ============================================================
+def delete_table(table_name: str):
+    cursor, conn = connect()
+    queries = FichaQueries(table_name)
+    cursor.execute(queries.drop_table)
+    conn.commit()
+    
+
 def insert_fichas_raw():
     # Define variables
     with open(os.path.join(databases, "info_obs.json"), "r", encoding="utf-8") as file:
         info_obs = json.load(file)
-    queries = FichaQueries("info_fichas_prueba")
+    queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
 
     # Create table if not exists
     cursor.execute(queries.create_table)
 
     # Iterate over fichas
-    for details in info_obs:
+    for code, metadata in info_obs.items():
         # Para campos tags que son listas, convertirlos a string
-        if isinstance(details["tags"], list):
-            details["tags"] = ", ".join(details["tags"])
+        if isinstance(metadata["tags"], list):
+            metadata["tags"] = ", ".join(metadata["tags"])
         
         # Insertion
         cursor.execute(queries.insert, [
-            details["codigo"],
-            details["titulo_corto"],
-            details["titulo_largo"],
-            details["sumilla"],
-            details["fecha_publicacion"],
-            details["ultima_actualizacion"],
-            details["tags"],
-            details["estado"],
-            details["tematica"]
+            code,
+            metadata.get("titulo_corto", ""),       
+            metadata.get("titulo_largo", ""),
+            metadata.get("sumilla", ""),
+            metadata.get("fecha_publicacion", ""),   
+            metadata.get("ultima_actualizacion", ""),
+            metadata.get("tags", ""),                
+            metadata.get("estado", ""),              
+            metadata.get("tematica", "")
         ])
     conn.commit()
 
 
 def insert_fichas():
     # Defining variables
-    with open(os.path.join(databases, "info_obs_list_prueba.json"), "r", encoding="utf-8") as file:
+    with open(os.path.join(databases, "info_obs.json"), "r", encoding="utf-8") as file:
         info_obs = json.load(file)
-    queries = FichaQueries()
+    queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
 
     # Create table if not exists
-    cursor.execute(queries.create_table("info_fichas_new"))
-    #fichas = [Ficha(**ficha) for ficha in info_obs]
+    cursor.execute(queries.create_table)
 
-    #
-    for ficha in info_obs:
+    fichas = [Ficha(**ficha) for ficha in info_obs]
+
+    for ficha in fichas:
         ficha: Ficha
         ficha.clean_tags()
         cursor.execute(queries.insert, [
@@ -199,6 +207,7 @@ def add_rubro_subrubro():
 
     # df.to_excel(os.path.join(datasets, "fichas_rubro_subrubro.xlsx"), index=False)
 
+# AÑADIR COLUMNAS (SOLO TENDENCIAS TERRITORIALES)
 # def add_columns():
 #     # Defining variables
 #     queries = FichaQueries("fichas")
@@ -237,6 +246,7 @@ if __name__ == "__main__":
     #obtain_duplicates(FichaQueries("ficha"))
 
     #add_rubro_subrubro()
-    validate_db()
+    #validate_db()
+    insert_fichas_raw()
 
     #cursor.execute(queries.create_table)

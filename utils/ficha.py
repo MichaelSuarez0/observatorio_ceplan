@@ -71,7 +71,7 @@ class Ficha(BaseModel):
     @classmethod
     def validate_code(cls, value):
         valid = False
-        with open(os.path.join(script_dir, "databases", "rubros_subrubros.json"), "r", encoding="utf-8") as file:
+        with open(os.path.join(script_dir, "..", "databases", "rubros_subrubros.json"), "r", encoding="utf-8") as file:
             rubros_subrubros = json.load(file)
         for details in rubros_subrubros.values():
             if isinstance(details, dict):
