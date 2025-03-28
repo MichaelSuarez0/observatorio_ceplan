@@ -150,62 +150,65 @@ def filter_fichas():
     data = cursor.fetchall()
     df = pd.DataFrame(data, columns=['codigo', 'titulo_corto', 'titulo_largo', 'sumilla', 'fecha_publicacion', 
                                      'ultima_actualizacion', 'tags', 'estado', 'tematica', 'vistas', 'usuarios_activos', 'eventos'])
-    
-def add_rubro_subrubro():
+
+
+def join_tables(new_table: str, fichas_table: str = "info_fichas", vistas_table: str = "vistas"):
+    cursor, conn = connect()
+    queries = FichaQueries()
+    cursor.execute(queries.left_join(new_table, fichas_table, vistas_table))
+    conn.commit()
+    logging.info(f"Se creó la tabla '{new_table}' a partir de un left join entre '{vistas_table}' y '{fichas_table}'")
+
+
+def add_rubro_subrubro(table_name: str = "fichas_vistas", generate_excel: bool = False):
     # Defining variables
-    queries = FichaQueries("fichas")
+    queries = FichaQueries("fichas_vistas")
     cursor, conn = connect("observatorio")
-    with open(os.path.join(databases, "rubros_subrubros_admin.json"), "r", encoding="utf-8") as file:
+    with open(os.path.join(databases, "rubros_subrubros_simple.json"), "r", encoding="utf-8") as file:
         rubros_subrubros = json.load(file)
 
     # Fetching data from queries
     cursor.execute(queries.select_all)
     data = cursor.fetchall()
-    df = pd.DataFrame(data, columns=['codigo', 'titulo_corto', 'titulo_largo', 'sumilla', 'fecha_publicacion', 
-                                    'ultima_actualizacion', 'tags', 'estado', 'tematica', 'vistas', 'usuarios_activos', 'eventos'])
+    codigos = [row[0] for row in data]
+
     rubros = []
     subrubros = []
-    codigos = df["codigo"].tolist()
 
     for codigo in codigos:
         found = False
         for rubro, details in rubros_subrubros.items():
-            if rubro not in ["Megatendencias", "Fuerzas primarias"]:
-                for subrubro, regex in details.items():
-                    if re.match(regex, codigo):
-                        found = True
-                        rubros.append(rubro)
-                        subrubros.append(subrubro)
-                        break
-                if found:
-                    break
-            else:
-                if re.match(details, codigo):
+            for subrubro, regex in details.items():
+                if re.match(regex, codigo):
                     found = True
                     rubros.append(rubro)
-                    subrubros.append(rubro)
+                    subrubros.append(subrubro)
                     break
+            if found:
+                break    
         if not found:
             rubros.append("")
             subrubros.append("")
 
-    cursor.executescript("""
-                   ALTER TABLE fichas ADD COLUMN rubro TEXT;
-                   ALTER TABLE fichas ADD COLUMN subrubro TEXT
-                   """)
+    cursor.execute(queries.add_column("rubro"))
+    cursor.execute(queries.add_column("subrubro"))
+                        
     for rubro, subrubro, codigo in zip(rubros, subrubros, codigos):
-        cursor.execute("""
-                        UPDATE fichas
+        cursor.execute(f"""
+                        UPDATE {table_name}
                         SET rubro = ?, subrubro = ?
                         WHERE codigo = ?""", (rubro, subrubro, codigo))
     
     conn.commit()
-    logging.info("Se añadieron rubros y subrubros a la tabla 'fichas'")
+    logging.info(f"Se añadieron rubros y subrubros a la tabla '{table_name}'")
 
-    # df["rubro"] = rubros
-    # df["subrubro"] = subrubros
+    if generate_excel:
+        df = pd.DataFrame(data, columns=['codigo', 'titulo_corto', 'titulo_largo', 'sumilla', 'fecha_publicacion', 
+                                        'ultima_actualizacion', 'tags', 'estado', 'tematica', 'vistas', 'usuarios_activos', 'eventos'])
+        df["rubro"] = rubros
+        df["subrubro"] = subrubros
 
-    # df.to_excel(os.path.join(datasets, "fichas_rubro_subrubro.xlsx"), index=False)
+        df.to_excel(os.path.join(databases, "fichas_rubro_subrubro.xlsx"), index=False)
 
 # AÑADIR COLUMNAS (SOLO TENDENCIAS TERRITORIALES)
 # def add_columns():
@@ -244,9 +247,10 @@ def add_rubro_subrubro():
 
 if __name__ == "__main__":
     #obtain_duplicates(FichaQueries("ficha"))
-
+    delete_table("fichas")
     #add_rubro_subrubro()
+    #join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
     #validate_db()
-    insert_fichas_raw()
+    #insert_fichas_raw()
 
     #cursor.execute(queries.create_table)
