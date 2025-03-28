@@ -30,45 +30,40 @@ class FichaQueries(Queries):
         self.table_name = table_name
         self.regex = FichaRegex()
 
-    @property
-    def left_join(self) -> str: 
+    def add_column(self, column_name: str):
         return f"""
-        SELECT codigo, COUNT(*)
-            FROM {self.table_name}
-            GROUP BY codigo
-            HAVING COUNT(*) > 1"""
+        ALTER TABLE {self.table_name} ADD COLUMN {column_name} TEXT;
+        """
         
-    @property
-    def left_join(self) -> str:
+    def left_join(self, new_table: str, fichas_table: str = "info_fichas", vistas_table: str = "vistas") -> str:
         return f"""
-        CREATE TABLE fichas AS
+        CREATE TABLE {new_table} AS
         SELECT
-            vistas.codigo,
-            info_fichas_prueba.titulo_corto,
-            info_fichas_prueba.titulo_largo,
-            info_fichas_prueba.sumilla,
-            info_fichas_prueba.fecha_publicacion,
-            info_fichas_prueba.ultima_actualizacion,
-            info_fichas_prueba.tags,
-            info_fichas_prueba.estado,
-            info_fichas_prueba.tematica,
-            vistas.vistas,
-            vistas.usuarios_activos,
-            vistas.eventos
+            {vistas_table}.codigo,
+            {fichas_table}.titulo_corto,
+            {fichas_table}.titulo_largo,
+            {fichas_table}.sumilla,
+            {fichas_table}.fecha_publicacion,
+            {fichas_table}.ultima_actualizacion,
+            {fichas_table}.tags,
+            {fichas_table}.estado,
+            {fichas_table}.tematica,
+            {vistas_table}.vistas,
+            {vistas_table}.usuarios_activos,
+            {vistas_table}.eventos
         FROM
-            vistas
+            {vistas_table}
         LEFT JOIN
-            info_fichas_prueba ON vistas.codigo = info_fichas_prueba.codigo
-
+            {fichas_table} ON {vistas_table}.codigo = {fichas_table}.codigo
         """
     
     @property
     def select_duplicates(self):
         return f"""
         SELECT codigo, COUNT(*) AS cantidad
-        FROM fichas
-        GROUP BY codigo
-        HAVING COUNT(*) > 1
+            FROM fichas
+            GROUP BY codigo
+            HAVING COUNT(*) > 1
         """
     
     
