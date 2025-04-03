@@ -7,7 +7,6 @@ import json
 import logging
 from observatorio_ceplan import Ficha, FichaQueries
 from observatorio_ceplan import FichaQueries, VistasQueries
-from observatorio_ceplan import FichaRegex
 import re
 
 # Variables globales
@@ -83,7 +82,7 @@ def insert_fichas_raw():
 
 def insert_fichas():
     # Defining variables
-    with open(os.path.join(databases, "info_obs.json"), "r", encoding="utf-8") as file:
+    with open(os.path.join(databases, "info_obs_prueba.lnk"), "r", encoding="utf-8") as file:
         info_obs = json.load(file)
     queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
@@ -107,7 +106,7 @@ def insert_fichas():
             ficha.estado,
             ficha.tematica
         ])
-    conn.commit()
+    #conn.commit()
 
 def obtain_duplicates(queries: FichaQueries):
     cursor, conn = connect("observatorio")
@@ -210,6 +209,19 @@ def add_rubro_subrubro(table_name: str = "fichas_vistas", generate_excel: bool =
 
         df.to_excel(os.path.join(databases, "fichas_rubro_subrubro.xlsx"), index=False)
 
+def exportar_tabla(table_name: str = "ficha_vistas"):
+    # Defining variables
+    queries = FichaQueries(table_name)
+    cursor, conn = connect("observatorio")
+    path = os.path.join(databases, f"{table_name}.xlsx")
+
+    df = pd.read_sql_query(queries.select_all, conn)
+    df.to_excel(path, index=False)
+    conn.close()
+
+    logging.info(f"Se exportó la tabla '{table_name} en {path}")
+
+
 # AÑADIR COLUMNAS (SOLO TENDENCIAS TERRITORIALES)
 # def add_columns():
 #     # Defining variables
@@ -247,10 +259,12 @@ def add_rubro_subrubro(table_name: str = "fichas_vistas", generate_excel: bool =
 
 if __name__ == "__main__":
     #obtain_duplicates(FichaQueries("ficha"))
-    delete_table("fichas")
+    #delete_table("fichas")
     #add_rubro_subrubro()
     #join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
     #validate_db()
     #insert_fichas_raw()
+    insert_fichas()
+    #exportar_tabla("fichas_vistas")
 
     #cursor.execute(queries.create_table)
