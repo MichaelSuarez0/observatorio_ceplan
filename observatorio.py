@@ -5,9 +5,10 @@ import os
 import sqlite3
 import json
 import logging
-from observatorio_ceplan import Ficha, FichaQueries
+from observatorio_ceplan import Ficha, FichaQueries, FichaRegex
 from observatorio_ceplan import FichaQueries, VistasQueries
 import re
+from pylnk3 import Lnk
 
 # Variables globales
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,10 @@ logging.basicConfig(
 # ============================================================
 def regexp(pattern, item):
     return re.search(pattern, item) is not None
+
+def read_lnk_target(lnk_path):
+    lnk = Lnk(lnk_path)
+    return lnk.path
 
 
 def connect(db_name: str = "observatorio", register_regex: bool = False):
@@ -82,15 +87,41 @@ def insert_fichas_raw():
 
 def insert_fichas():
     # Defining variables
-    with open(os.path.join(databases, "info_obs_prueba.lnk"), "r", encoding="utf-8") as file:
+    lnk_path = os.path.join(databases, "info_obs_prueba.lnk")
+    json_path = read_lnk_target(lnk_path)
+    with open(json_path, "r", encoding="utf-8") as file:
         info_obs = json.load(file)
     queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
+    fichas = []
+    fichas_not_validated = []
 
+    ic(info_obs)
     # Create table if not exists
     cursor.execute(queries.create_table)
 
-    fichas = [Ficha(**ficha) for ficha in info_obs]
+    for code, metadata in info_obs.items():
+        # Para campos tags que son listas, convertirlos a string
+        if isinstance(metadata["tags"], list):
+            metadata["tags"] = ", ".join(metadata["tags"])
+        
+        # Validation
+        try:
+            ficha = Ficha(
+                codigo = code,
+                titulo_corto=metadata.get("titulo_corto", ""),       
+                titulo_largo=metadata.get("titulo_largo", ""),
+                sumilla=metadata.get("sumilla", ""),
+                fecha_publicacion=metadata.get("fecha_publicacion", ""),   
+                ultima_actualizacion=metadata.get("ultima_actualizacion", ""),
+                tags=metadata.get("tags", ""),                
+                estado=metadata.get("estado", ""),              
+                tematica=metadata.get("tematica", "")
+            )
+            fichas.append(ficha)
+        except Exception as e:
+            logging.error(f"Check validation: {e}")
+            fichas_not_validated.append(code)
 
     for ficha in fichas:
         ficha: Ficha
@@ -116,24 +147,33 @@ def obtain_duplicates(queries: FichaQueries):
     logging.info(duplicates)
 
 
-def validate_db():
-    cursor, conn = connect("observatorio")
+def validate_codes(from_json: bool = True, table_name: str = "",):
+    if from_json:
+        lnk_path = os.path.join(databases, "info_obs_prueba.lnk")
+        json_path = read_lnk_target(lnk_path)
+        with open(json_path, "r", encoding="utf-8") as file:
+            data_raw = json.load(file)
 
-    cursor.execute("SELECT codigo FROM fichas")
-    data = cursor.fetchall()
+        data = [code for code in data_raw.keys()]
+
+    elif table_name:
+        cursor, conn = connect("observatorio")
+        cursor.execute(f"SELECT codigo FROM {table_name}")
+        data_raw = cursor.fetchall()
+
+        data = [row[0] for row in data_raw]
+
     data_validated = []
     data_not_validated = []
-    for r in data[:10]:
-        ic(r)
+    for code in data:
         try:
-            codigo = Ficha(codigo=r[0])
-            data_validated.append(codigo.model_dump())
+            ficha = Ficha(codigo=str(code))
+            data_validated.append(ficha.model_dump())
         except ValueError as e:
             logging.error(e)
-            data_not_validated.append(r[0])
+            data_not_validated.append(code)
             continue
 
-    #conn.commit()
     ic(len(data_validated))
     ic(len(data_not_validated))
 
@@ -262,9 +302,9 @@ if __name__ == "__main__":
     #delete_table("fichas")
     #add_rubro_subrubro()
     #join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
-    #validate_db()
+    validate_codes(table_name="fichas_vistas")
     #insert_fichas_raw()
-    insert_fichas()
+    #insert_fichas()
     #exportar_tabla("fichas_vistas")
 
     #cursor.execute(queries.create_table)

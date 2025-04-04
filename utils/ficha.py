@@ -4,6 +4,7 @@ from typing import Literal, Optional
 from datetime import datetime
 import os
 import json  
+from icecream import ic
 
 script_dir = os.path.join(os.path.dirname(__file__))
 
@@ -70,20 +71,19 @@ class Ficha(BaseModel):
     @field_validator("codigo")
     @classmethod
     def validate_code(cls, value):
-        valid = False
         with open(os.path.join(script_dir, "..", "databases", "rubros_subrubros.json"), "r", encoding="utf-8") as file:
             rubros_subrubros = json.load(file)
-        for details in rubros_subrubros.values():
-            if isinstance(details, dict):
-                for regex in details.values():
-                    #if any(re.match(regex, value) for subrubro in rubros_subrubros.values() for regex in subrubro.values()):
-                    if re.match(regex, value):
-                        valid = True
-                        break  # No need to check further
-        
-        if not valid:
-            raise ValueError(f"Invalid 'codigo': {value}. Must match one of the predefined formats.")
-        return value
+
+        # Función recursiva
+        def check_patterns(data: dict | str) -> bool:
+            if isinstance(data, str):
+                return bool(re.match(data, value))
+            elif isinstance(data, dict):
+                return any(check_patterns(item) for item in data.values())
+            return False
+
+        if not check_patterns(rubros_subrubros):
+            raise ValueError(f"El código '{value}' no coincide con ningún patrón válido")
     
     @field_validator("fecha_publicacion", "ultima_actualizacion", mode="before")
     @classmethod
