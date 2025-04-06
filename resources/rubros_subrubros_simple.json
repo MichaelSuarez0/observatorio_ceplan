@@ -1,16 +1,16 @@
 {
     "Riesgos": {
-        "Riesgos territoriales": "^r\\d+_\\w+",
-        "Riesgos nacionales": "^r\\d+$"
+        "Riesgos territoriales": "^r\\d+_[^\\d]\\w*$",
+        "Riesgos nacionales": "^r\\d+(?:_\\d+)?$"
     },
     "Oportunidades": {
-        "Oportunidades territoriales": "^o\\d+_\\w+",
-        "Oportunidades nacionales": "^o\\d+$"
+        "Oportunidades territoriales": "^o\\d+_[^\\d]\\w*$",
+        "Oportunidades nacionales": "^o\\d+(?:_\\d+)?$"
         
     },
     "Tendencias": {
-        "Tendencias territoriales": "^t\\d+_\\w+",
-        "Tendencias nacionales": "^t\\d+$",
+        "Tendencias territoriales": "^t\\d+_[^\\d]\\w*$",
+        "Tendencias nacionales": "^t\\d+(?:_\\d+)?$",
         "Tendencias globales": "^tg\\d+$",
         "Tendencias sectoriales": "^ts_\\d+_\\w+"
     },

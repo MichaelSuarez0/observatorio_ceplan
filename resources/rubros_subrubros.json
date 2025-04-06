@@ -33,7 +33,7 @@
         }
     },
     "Riesgos": {
-        "Riesgos Nacionales": "^r\\d+(?=\\s|$)",
+        "Riesgos Nacionales": "^r\\d+(?:_2\\d{3})?(?=\\s|$)",
         "Riesgos Territoriales": {
             "Amazonas": "^r\\d+_ama(?=\\s|$)",
             "Áncash": "^r\\d+_an(?=\\s|$)",
@@ -41,7 +41,7 @@
             "Arequipa": "^r\\d+_are(?=\\s|$)",
             "Ayacucho": "^r\\d+_aya(?=\\s|$)",
             "Cajamarca": "^r\\d+_caj(?=\\s|$)",
-            "Callao": "^r\\d+_callao(?=\\s|$)",
+            "Callao": "^r\\d+_(callao|cal)(?=\\s|$)",
             "Cusco": "^r\\d+_cus(?=\\s|$)",
             "Huancavelica": "^r\\d+_hcv(?=\\s|$)",
             "Huánuco": "^r\\d+_hnc(?=\\s|$)",
@@ -64,18 +64,18 @@
         }
     },
     "Oportunidades": {
-        "Oportunidades Nacionales": "^o\\d+(?=\\s|$)",
+        "Oportunidades Nacionales": "^o\\d+(?:_2\\d{3})?(?=\\s|$)",
         "Oportunidades Territoriales": {
             "Amazonas": "^o\\d+_ama(?=\\s|$)",
             "Áncash": "^o\\d+_an(?=\\s|$)",
             "Apurímac": "^o\\d+_apu(?=\\s|$)",
             "Arequipa": "^o\\d+_are(?=\\s|$)",
             "Ayacucho": "^o\\d+_aya(?=\\s|$)",
-            "Cajamarca": "^o\\d+_caj(?=\\s|$)",
-            "Callao": "^o\\d+_callao(?=\\s|$)",
+            "Cajamarca": "^o\\d+_(caj|caja)(?=\\s|$)",
+            "Callao": "^o\\d+_(cal|callao)(?=\\s|$)",
             "Cusco": "^o\\d+_cus(?=\\s|$)",
-            "Huancavelica": "^o\\d+_hcv(?=\\s|$)",
-            "Huánuco": "^o\\d+_hnc(?=\\s|$)",
+            "Huancavelica": "^o\\d+_(hcv|hua)(?=\\s|$)",
+            "Huánuco": "^o\\d+_(hnc|huan)(?=\\s|$)",
             "Ica": "^o\\d+_ica(?=\\s|$)",
             "Junín": "^o\\d+_jun(?=\\s|$)",
             "La Libertad": "^o\\d+_lali(?=\\s|$)",
@@ -95,12 +95,14 @@
         }
     },
     "Eventos futuros": {
-        "Señal débil": "^S\\d+(?=\\s|$)",
-        "Carta salvaje": "^s\\d+(?=\\s|$)",
+        "Señal débil": "^[Ss]\\d+(?=\\s|$)",
+        "Carta salvaje": "^[Cc]\\d+(?=\\s|$)",
         "Tecnología emergente": "^TE_\\d+(?=\\s|$)"
     },
     "Escenarios": {
         "Escenarios de corto plazo": "^e\\d+_cp(?=\\s|$)",
-        "Escenarios de largo plazo": "^e\\d+_lp(?=\\s|$)"
-    }
+        "Escenarios de largo plazo": "(e\\d+_lp|e\\d+)$"
+    },
+    "Megatendencias": {"Megatendencias": "^m\\d+$"},
+    "Fuerzas primarias": {"Fuerzas primarias": "^fp\\d+$"}
 }
