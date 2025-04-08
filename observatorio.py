@@ -5,15 +5,14 @@ import os
 import sqlite3
 import json
 import logging
-from observatorio_ceplan import Ficha, FichaQueries, FichaRegex
-from observatorio_ceplan import FichaQueries, VistasQueries
+from observatorio_ceplan import Ficha, FichaQueries, FichaRegex, Observatorio
 import re
-from pylnk3 import Lnk
 
 # Variables globales
 script_dir = os.path.dirname(os.path.abspath(__file__))
-databases = os.path.join(script_dir, "databases")
+resources = os.path.join(script_dir, "resources")
 log_path = os.path.join(script_dir, "logs", "observatorio.log")
+observatorio = Observatorio()
 
 logging.basicConfig(
     level=logging.INFO,  # Nivel de registro (INFO, DEBUG, WARNING, ERROR, CRITICAL)
@@ -30,13 +29,8 @@ logging.basicConfig(
 def regexp(pattern, item):
     return re.search(pattern, item) is not None
 
-def read_lnk_target(lnk_path):
-    lnk = Lnk(lnk_path)
-    return lnk.path
-
-
 def connect(db_name: str = "observatorio", register_regex: bool = False):
-    database = os.path.join(databases, f"{db_name}.db")
+    database = os.path.join(resources, f"{db_name}.db")
     conn = sqlite3.connect(database)
     cursor = conn.cursor()
     if register_regex:
@@ -52,11 +46,12 @@ def delete_table(table_name: str):
     queries = FichaQueries(table_name)
     cursor.execute(queries.drop_table)
     conn.commit()
+    logging.info(f"Se eliminó la tabla '{table_name}'")
     
 
 def insert_fichas_raw():
     # Define variables
-    with open(os.path.join(databases, "info_obs.json"), "r", encoding="utf-8") as file:
+    with open(os.path.join(resources, "info_obs.json"), "r", encoding="utf-8") as file:
         info_obs = json.load(file)
     queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
@@ -87,16 +82,12 @@ def insert_fichas_raw():
 
 def insert_fichas():
     # Defining variables
-    lnk_path = os.path.join(databases, "info_obs_prueba.lnk")
-    json_path = read_lnk_target(lnk_path)
-    with open(json_path, "r", encoding="utf-8") as file:
-        info_obs = json.load(file)
+    info_obs = observatorio.load_info_obs()
     queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
     fichas = []
     fichas_not_validated = []
 
-    ic(info_obs)
     # Create table if not exists
     cursor.execute(queries.create_table)
 
@@ -149,12 +140,8 @@ def obtain_duplicates(queries: FichaQueries):
 
 def validate_codes(from_json: bool = True, table_name: str = "",):
     if from_json:
-        lnk_path = os.path.join(databases, "info_obs_prueba.lnk")
-        json_path = read_lnk_target(lnk_path)
-        with open(json_path, "r", encoding="utf-8") as file:
-            data_raw = json.load(file)
-
-        data = [code for code in data_raw.keys()]
+        info_obs = observatorio.load_info_obs()
+        data = [code for code in info_obs.keys()]
 
     elif table_name:
         cursor, conn = connect("observatorio")
@@ -177,7 +164,7 @@ def validate_codes(from_json: bool = True, table_name: str = "",):
     ic(len(data_validated))
     ic(len(data_not_validated))
 
-
+# TODO: Modularizar FichaRegex en clase Observatorio
 def filter_fichas():
     # Defining variables
     queries = FichaQueries("fichas")
@@ -193,81 +180,69 @@ def filter_fichas():
 
 def join_tables(new_table: str, fichas_table: str = "info_fichas", vistas_table: str = "vistas"):
     cursor, conn = connect()
-    queries = FichaQueries()
+    queries = FichaQueries(new_table)
+    cursor.execute(queries.drop_table)
     cursor.execute(queries.left_join(new_table, fichas_table, vistas_table))
     conn.commit()
     logging.info(f"Se creó la tabla '{new_table}' a partir de un left join entre '{vistas_table}' y '{fichas_table}'")
 
 
-def add_rubro_subrubro(table_name: str = "fichas_vistas", generate_excel: bool = False):
+def add_rubro_subrubro(table_name: str = "fichas_vistas"):
     # Defining variables
-    queries = FichaQueries("fichas_vistas")
+    queries = FichaQueries(table_name)
     cursor, conn = connect("observatorio")
-    with open(os.path.join(databases, "rubros_subrubros_simple.json"), "r", encoding="utf-8") as file:
-        rubros_subrubros = json.load(file)
 
     # Fetching data from queries
     cursor.execute(queries.select_all)
     data = cursor.fetchall()
     codigos = [row[0] for row in data]
 
-    rubros = []
-    subrubros = []
-
-    for codigo in codigos:
-        found = False
-        for rubro, details in rubros_subrubros.items():
-            for subrubro, regex in details.items():
-                if re.match(regex, codigo):
-                    found = True
-                    rubros.append(rubro)
-                    subrubros.append(subrubro)
-                    break
-            if found:
-                break    
-        if not found:
-            rubros.append("")
-            subrubros.append("")
+    rubros_subrubros = [observatorio.get_code_classification(codigo) for codigo in codigos]
 
     cursor.execute(queries.add_column("rubro"))
     cursor.execute(queries.add_column("subrubro"))
+    cursor.execute(queries.add_column("departamento"))
                         
-    for rubro, subrubro, codigo in zip(rubros, subrubros, codigos):
+    for item, codigo in zip(rubros_subrubros, codigos):
+        rubro, subrubro, departamento = item
         cursor.execute(f"""
                         UPDATE {table_name}
-                        SET rubro = ?, subrubro = ?
-                        WHERE codigo = ?""", (rubro, subrubro, codigo))
+                        SET rubro = ?, subrubro = ?, departamento = ?
+                        WHERE codigo = ?""", (rubro, subrubro, departamento, codigo))
     
     conn.commit()
     logging.info(f"Se añadieron rubros y subrubros a la tabla '{table_name}'")
 
-    if generate_excel:
-        df = pd.DataFrame(data, columns=['codigo', 'titulo_corto', 'titulo_largo', 'sumilla', 'fecha_publicacion', 
-                                        'ultima_actualizacion', 'tags', 'estado', 'tematica', 'vistas', 'usuarios_activos', 'eventos'])
-        df["rubro"] = rubros
-        df["subrubro"] = subrubros
 
-        df.to_excel(os.path.join(databases, "fichas_rubro_subrubro.xlsx"), index=False)
-
-def exportar_tabla(table_name: str = "ficha_vistas"):
+def exportar_tabla(table_name: str = "ficha_vistas", query: str = "", export_name: str = ""):
     # Defining variables
     queries = FichaQueries(table_name)
     cursor, conn = connect("observatorio")
-    path = os.path.join(databases, f"{table_name}.xlsx")
 
-    df = pd.read_sql_query(queries.select_all, conn)
+    if not export_name:
+        from datetime import datetime
+        path = os.path.join(resources, f"{table_name}_{datetime.now().strftime('%Y%m%d')}.xlsx")
+    else:
+        path = os.path.join(resources, f"{export_name}.xlsx")
+
+    if query:
+        df = pd.read_sql_query(query, conn)
+    else:
+        df = pd.read_sql_query(queries.select_all, conn)
+
     df.to_excel(path, index=False)
     conn.close()
 
     logging.info(f"Se exportó la tabla '{table_name} en {path}")
 
 
-# AÑADIR COLUMNAS (SOLO TENDENCIAS TERRITORIALES)
+# #AÑADIR COLUMNAS (SOLO TENDENCIAS TERRITORIALES)
 # def add_columns():
 #     # Defining variables
 #     queries = FichaQueries("fichas")
 #     cursor, conn = connect("observatorio")
-#     with open(os.path.join(datasets, "rubros_subrubros.json"), "r", encoding="utf-8") as file:
+#     rubros_subrubros = observatorio.load_rubros_subrubros()
+#     with open(os.path.join(r, "rubros_subrubros.json"), "r", encoding="utf-8") as file:
 #         rubros_subrubros = json.load(file)
 
 #     # Fetching data from queries
@@ -299,12 +274,13 @@ def exportar_tabla(table_name: str = "ficha_vistas"):
 
 if __name__ == "__main__":
     #obtain_duplicates(FichaQueries("ficha"))
-    #delete_table("fichas")
-    #add_rubro_subrubro()
-    #join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
-    validate_codes(table_name="fichas_vistas")
+    #delete_table("fichas_vistas")
+
     #insert_fichas_raw()
-    #insert_fichas()
-    #exportar_tabla("fichas_vistas")
+    join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
+    add_rubro_subrubro("fichas_vistas")
+
+    #validate_codes(table_name="fichas_vistas")
+    exportar_tabla("fichas_vistas", "SELECT * FROM fichas_vistas WHERE titulo_corto ISNULL", export_name="prueba")
 
     #cursor.execute(queries.create_table)
