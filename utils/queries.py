@@ -106,7 +106,6 @@ class VistasQueries(Queries):
     def create_table(self):
         return f"""
         CREATE TABLE IF NOT EXISTS {self.table_name}(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo TEXT,
             vistas INTEGER,
             usuarios_activos INTEGER,
@@ -117,7 +116,25 @@ class VistasQueries(Queries):
     def insert(self):
         return f"""
         INSERT INTO {self.table_name}(
-            id, codigo, vistas, usuarios_activos, eventos) 
+            codigo, vistas, usuarios_activos, eventos) 
             VALUES 
-            (?, ?, ?, ?, ?)"""
+            (?, ?, ?, ?)
+        """
+
+    @property
+    def delete_where_codigo(self):
+        return f"""
+        DELETE FROM {self.table_name}
+            WHERE codigo LIKE '%%adm%%'
+            OR codigo LIKE '%%test%%'
+        """
+    
+    @property
+    def clean_code(self):
+        return f"""
+        UPDATE {self.table_name}
+        SET codigo = REPLACE(REPLACE(codigo, 'ficha', ''), '/', '')
+        """
+
+
 
