@@ -7,6 +7,9 @@ import json
 import logging
 from observatorio_ceplan import Ficha, FichaQueries, FichaRegex, Observatorio
 import re
+from pprint import pformat
+
+from observatorio_ceplan.utils import queries
 
 # Variables globales
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -79,16 +82,50 @@ def insert_fichas_raw():
         ])
     conn.commit()
 
+# def validate_table(table_name: str, table_output_name: str):
+#     cursor, conn = connect("observatorio")
+#     queries = FichaQueries(table_name)
+#     cursor.execute(queries.select_all)
+#     rows = cursor.fetchall()
 
-def insert_fichas():
+#     data_validated: list[Tuple] = []
+#     data_not_validated: list[str] = []
+#     for row in rows:
+#         try:
+#             ficha = Ficha(codigo=str(row[0]))
+#             data_validated.append(row)
+#         except ValueError as e:
+#             data_not_validated.append(row[0])
+#             continue
+    
+#     logging.error(f"Codes not validated: \n {pformat(data_not_validated, indent=2, width=120)}")
+#     ic(len(data_validated))
+#     ic(len(data_not_validated))
+#     logging.info("==" * 50)
+#     return data_validated
+
+def insert_fichas(table_name: str):
     # Defining variables
-    info_obs = observatorio.load_info_obs()
-    queries = FichaQueries("info_fichas")
     cursor, conn = connect("observatorio")
-    fichas = []
-    fichas_not_validated = []
+    info_obs = observatorio.load_info_obs()
+    queries = FichaQueries(table_name)
+
+    #cursor.execute(queries.select_all)
+    #rows = cursor.fetchall()
+
+    fichas_validated: list[Tuple] = []
+    fichas_not_validated: list[str] = []
+    errors= []
+    # for row in rows:
+    #     try:
+    #         ficha = Ficha(codigo=str(row[0]))
+    #         data_validated.append(row)
+    #     except ValueError as e:
+    #         code_not_validated.append(row[0])
+    #         continue
 
     # Create table if not exists
+    cursor.execute(queries.drop_table)
     cursor.execute(queries.create_table)
 
     for code, metadata in info_obs.items():
@@ -109,60 +146,56 @@ def insert_fichas():
                 estado=metadata.get("estado", ""),              
                 tematica=metadata.get("tematica", "")
             )
-            fichas.append(ficha)
+            fichas_validated.append(tuple(ficha.model_dump().values()))
         except Exception as e:
-            logging.error(f"Check validation: {e}")
+            errors.append(e)
+            #logging.error(f"Check validation: {e}")
             fichas_not_validated.append(code)
+            continue
 
-    for ficha in fichas:
-        ficha: Ficha
-        ficha.clean_tags()
-        cursor.execute(queries.insert, [
-            ficha.codigo,
-            ficha.titulo_corto,
-            ficha.titulo_largo,
-            ficha.sumilla,
-            ficha.fecha_publicacion,
-            ficha.ultima_actualizacion,
-            ficha.tags,
-            ficha.estado,
-            ficha.tematica
-        ])
+    ic(len(fichas_validated))
+    ic(len(fichas_not_validated))
+    ic(errors[:5])
+
+    cursor.executemany(queries.insert, fichas_validated)
     #conn.commit()
 
-def obtain_duplicates(queries: FichaQueries):
+def obtain_duplicates(table_name: str = "fichas_vistas"):
     cursor, conn = connect("observatorio")
+    queries = FichaQueries(table_name)
     cursor.execute(queries.select_duplicates)
     duplicates = cursor.fetchall()
     len(duplicates)
     logging.info(duplicates)
 
 
-def validate_codes(from_json: bool = True, table_name: str = "",):
+def validate_codes(table_name: str = "", from_json: bool = False):
     if from_json:
         info_obs = observatorio.load_info_obs()
-        data = [code for code in info_obs.keys()]
+        codes = [code for code in info_obs.keys()]
 
     elif table_name:
         cursor, conn = connect("observatorio")
         cursor.execute(f"SELECT codigo FROM {table_name}")
-        data_raw = cursor.fetchall()
+        rows = cursor.fetchall()
 
-        data = [row[0] for row in data_raw]
+        codes = [row[0] for row in rows]
 
     data_validated = []
     data_not_validated = []
-    for code in data:
+    for code in codes:
         try:
             ficha = Ficha(codigo=str(code))
             data_validated.append(ficha.model_dump())
         except ValueError as e:
-            logging.error(e)
             data_not_validated.append(code)
             continue
-
+    
+    logging.error(f"Codes not validated: \n {pformat(data_not_validated, indent=2, width=120)}")
+    logging.info("==" * 50)
     ic(len(data_validated))
     ic(len(data_not_validated))
+
 
 # TODO: Modularizar FichaRegex en clase Observatorio
 def filter_fichas():
@@ -182,7 +215,7 @@ def join_tables(new_table: str, fichas_table: str = "info_fichas", vistas_table:
     cursor, conn = connect()
     queries = FichaQueries(new_table)
     cursor.execute(queries.drop_table)
-    cursor.execute(queries.left_join(new_table, fichas_table, vistas_table))
+    cursor.execute(queries.join(new_table, fichas_table, vistas_table))
     conn.commit()
     logging.info(f"Se creó la tabla '{new_table}' a partir de un left join entre '{vistas_table}' y '{fichas_table}'")
 
@@ -234,6 +267,7 @@ def exportar_tabla(table_name: str = "ficha_vistas", query: str = "", export_nam
     conn.close()
 
     logging.info(f"Se exportó la tabla '{table_name} en {path}")
+    return df
 
 
 # #AÑADIR COLUMNAS (SOLO TENDENCIAS TERRITORIALES)
@@ -273,14 +307,15 @@ def exportar_tabla(table_name: str = "ficha_vistas", query: str = "", export_nam
 #     json.dump(info_obs_final, file, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
-    #obtain_duplicates(FichaQueries("ficha"))
+    #obtain_duplicates()
     #delete_table("fichas_vistas")
 
-    #insert_fichas_raw()
-    join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
-    add_rubro_subrubro("fichas_vistas")
+    # insert_fichas_raw()
+    insert_fichas("fichas_clean")
+    # join_tables("fichas_vistas", fichas_table="info_fichas", vistas_table="vistas")
+    # add_rubro_subrubro("fichas_vistas")
 
     #validate_codes(table_name="fichas_vistas")
-    exportar_tabla("fichas_vistas", "SELECT * FROM fichas_vistas WHERE titulo_corto ISNULL", export_name="prueba")
+    #exportar_tabla("fichas_vistas", "SELECT * FROM fichas_vistas WHERE titulo_corto IS NOT NULL", export_name="prueba")
 
     #cursor.execute(queries.create_table)
