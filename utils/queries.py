@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from observatorio_ceplan.utils.ficha import FichaRegex
+from typing import Literal
 
 class Queries(ABC):
     def __init__(self, table_name: str):
@@ -35,7 +36,7 @@ class FichaQueries(Queries):
         ALTER TABLE {self.table_name} ADD COLUMN {column_name} TEXT;
         """
         
-    def left_join(self, new_table: str, fichas_table: str = "info_fichas", vistas_table: str = "vistas") -> str:
+    def join(self, new_table: str, fichas_table: str = "info_fichas", vistas_table: str = "vistas", key: Literal["left", "inner"] = "inner") -> str:
         return f"""
         CREATE TABLE {new_table} AS
         SELECT
@@ -53,7 +54,7 @@ class FichaQueries(Queries):
             {vistas_table}.eventos
         FROM
             {vistas_table}
-        LEFT JOIN
+        {key.upper()} JOIN
             {fichas_table} ON {vistas_table}.codigo = {fichas_table}.codigo
         """
     
@@ -61,7 +62,7 @@ class FichaQueries(Queries):
     def select_duplicates(self):
         return f"""
         SELECT codigo, COUNT(*) AS cantidad
-            FROM fichas
+            FROM {self.table_name}
             GROUP BY codigo
             HAVING COUNT(*) > 1
         """

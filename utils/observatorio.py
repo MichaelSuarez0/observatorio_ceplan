@@ -81,7 +81,7 @@ class Observatorio:
     # TODO: Evaluar poner break
     # TODO: Evaluar el return
     def get_code_classification(self, code: str)-> Tuple[str, str, str | None]:
-        """Retorna el rubro, subrubro y departamento del código de una ficha a partir del dict rubros_subrubros.
+        """Retorna una tupla con el rubro, subrubro y departamento del código de una ficha a partir del dict rubros_subrubros.
         
         Returns:
             Tuple: tupla de 3 elementos: (rubro, subrubro, departamento). En caso de no ser territorial, departamento es None.
@@ -105,7 +105,7 @@ class Observatorio:
                             return (rubro, subrubro, departamento)
 
         print(f"  No se encontró coincidencia para: {code}")
-        return ""
+        return (None, None, None)
 
     def get_resource_path(self, resource_name: str) -> Path:
         """Devuelve la ruta completa a un recurso para usos avanzados."""

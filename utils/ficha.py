@@ -4,9 +4,10 @@ from typing import Literal, Optional
 from datetime import datetime
 import os
 import json  
-from icecream import ic
+from observatorio_ceplan.utils.observatorio import Observatorio
 
 script_dir = os.path.join(os.path.dirname(__file__))
+observatorio = Observatorio()
 
 class FichaRegex:
     # Riesgos
@@ -49,7 +50,7 @@ class Ficha(BaseModel):
     ultima_actualizacion: Optional[datetime | str | None] = None
     tags: Optional[str | list[str]] = None
     tematica: Optional[Literal["Social", "Ambiental", "Ética", "Económica", "Tecnológica", "Política", "General"]] = None
-    estado: Optional[Literal["Activo", "Inactivo"]] = None
+    estado: Optional[Literal["ACTIVO", "INACTIVO"]] = None
     rubro: Optional[Literal["Tendencias", "Megatendencias", "Riesgos", "Oportunidades", "Eventos futuros", "Fuerzas primarias"]] = None
     subrubro: Optional[Literal[
     "Riesgo Territorial",
@@ -71,8 +72,7 @@ class Ficha(BaseModel):
     @field_validator("codigo")
     @classmethod
     def validate_code(cls, value):
-        with open(os.path.join(script_dir, "..", "databases", "rubros_subrubros.json"), "r", encoding="utf-8") as file:
-            rubros_subrubros = json.load(file)
+        rubros_subrubros = observatorio.load_rubros_subrubros()
 
         # Función recursiva
         def check_patterns(data: dict | str) -> bool:
