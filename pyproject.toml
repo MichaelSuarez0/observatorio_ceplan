@@ -7,5 +7,5 @@ requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-package-dir = {""= "src"}  # Critical for src-layout
+package-dir = {""= "."}
 packages = ["observatorio_ceplan", "observatorio_ceplan.core", "observatorio_ceplan.utils"]
