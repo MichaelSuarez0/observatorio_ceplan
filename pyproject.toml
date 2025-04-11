@@ -1,0 +1,11 @@
+[project]
+name = "observatorio_ceplan"
+version = "0.1.0"
+
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {""= "src"}  # Critical for src-layout
+packages = ["observatorio_ceplan", "observatorio_ceplan.core", "observatorio_ceplan.utils"]

@@ -42,3 +42,4 @@ FROM fichas
 GROUP BY codigo
 HAVING COUNT(*) > 1
 
+SELECT * FROM ficha_vistas WHERE titulo_corto IS NOTNULL
