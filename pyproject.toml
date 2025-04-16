@@ -7,5 +7,8 @@ requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-package-dir = {""= "."}
-packages = ["observatorio_ceplan", "observatorio_ceplan.core", "observatorio_ceplan.utils"]
+packages = ["observatorio_ceplan"]
+package-dir = {"observatorio_ceplan" = "src"}  # ¡Esta línea es esencial!
+
+[tool.setuptools.package-data]
+observatorio_ceplan = ["resources/*.json"]  # Include JSON files
